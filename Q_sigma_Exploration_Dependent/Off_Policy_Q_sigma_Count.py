@@ -14,22 +14,23 @@ from lib import plotting
 from sklearn.linear_model import SGDRegressor
 from sklearn.kernel_approximation import RBFSampler
 from collections import namedtuple
+from sklearn import preprocessing
 
 
 from collections import defaultdict
 from lib.envs.cliff_walking import CliffWalkingEnv
 from lib.envs.windy_gridworld import WindyGridworldEnv
 from lib import plotting
-env = CliffWalkingEnv()
+#env = CliffWalkingEnv()
 #env=WindyGridworldEnv()
 
 
 # #with the mountaincar from openAi gym
-# env = gym.envs.make("MountainCar-v0")
+env = gym.envs.make("MountainCar-v0")
 
 
 #samples from the state space to compute the features
-observation_examples = np.array([env.observation_space.sample() for x in range(1)])
+observation_examples = np.array([env.observation_space.sample() for x in range(10000)])
 
 
 
@@ -51,7 +52,7 @@ featurizer.fit(scaler.transform(observation_examples))
 
 def featurize_state(state):
 
-	state = np.array([state])
+	state = np.array(state)
 
 	scaled = scaler.transform([state])
 	featurized = featurizer.transform(scaled)
@@ -129,10 +130,12 @@ def Q_Sigma_Off_Policy(env, theta, num_episodes, discount_factor=1.0, epsilon=0.
 
 	alpha = 0.01
 	tau=1
+	A=np.random.rand(8,2)
+
 
   
 	for i_episode in range(num_episodes):
-		state_count=np.zeros(shape=(env.observation_space.n,1))
+		state_visited=np.zeros(256)
 
 
 		print ("Epsisode Number Off Policy Q(sigma)", i_episode)
@@ -172,13 +175,22 @@ def Q_Sigma_Off_Policy(env, theta, num_episodes, discount_factor=1.0, epsilon=0.
 			q_values = np.dot(theta.T, features_state)
 			q_values_state_action = q_values[action]
 
+			g_s_off=preprocessing.scale(state)
+			off_policy_observation_hash=np.sign(np.dot(A,g_s_off.T))
+			off_policy_observation_idx=to_bin(off_policy_observation_hash)
+			off_policy_observation_idx_dec=int(to_dec(off_policy_observation_idx))
+			state_visited[off_policy_observation_idx_dec]+=1
+
+     
 
 
 			#select sigma value
-			if state_count[state]>=20:
+			if state_visited[off_policy_observation_idx_dec]>=20:
 				sigma_t_1 = 1
+				#print("Using sigma 1")
 			else:
 				sigma_t_1=0
+				#print("Using sigma 0")
 
 
 			#select next action based on the behaviour policy at next state
@@ -226,8 +238,8 @@ def take_average_results(experiment,num_experiments,num_episodes,env,theta):
 		error_mat[:,i]=cum_error.T
 		average_reward=np.mean(reward_mat,axis=1)
 		average_error=np.mean(error_mat,axis=1)
-		np.save('/home/raihan/Desktop/Final_Project_Codes/cliff_walking_results/Exploration_Dependent/'  + 'Qsigma_offpolicy_countbased_reward' + '.npy',average_reward)
-		np.save('/home/raihan/Desktop/Final_Project_Codes/cliff_walking_results/Exploration_Dependent/'  + 'Qsigma_offpolicy_count_based_error' + '.npy',average_error)
+		np.save('/home/raihan/Desktop/Q_Sigma/Results/Mountain_Car/'  + 'Qsigma_offpolicy_countbased_reward' + '.npy',average_reward)
+		np.save('/home/raihan/Desktop/Q_Sigma/Results/Mountain_Car/'  + 'Qsigma_offpolicy_count_based_error' + '.npy',average_error)
 		
 	return(average_reward,average_error)
 
@@ -236,13 +248,27 @@ def take_average_results(experiment,num_experiments,num_episodes,env,theta):
 def main():
 	theta = np.random.normal(size=(400,env.action_space.n))
 	num_episodes = 1000
-	num_experiments=20
+	num_experiments=1
 	print ("Running for Total Episodes", num_episodes)
 	smoothing_window = 1
 
 	avg_cum_reward,avg_cum_error=take_average_results(Q_Sigma_Off_Policy,num_experiments,num_episodes,env,theta)
 	
 	env.close()
+"converting signum functions to binary" 
+def to_bin(z):
+    for k in range(len(z)):
+        if z[k]==-1:
+            z[k]=0
+    return z
+"Converting binary to decimal"
+def to_dec(b):
+    q=np.zeros(len(b))
+    for j in range(len(b)):
+        q[j]=b[j]*2**(len(b)-(j+1))
+        
+    return np.sum(q)
+
 
 
 if __name__ == '__main__':
