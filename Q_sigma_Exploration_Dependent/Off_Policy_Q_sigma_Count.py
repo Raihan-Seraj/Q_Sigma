@@ -248,7 +248,7 @@ def take_average_results(experiment,num_experiments,num_episodes,env,theta):
 def main():
 	theta = np.random.normal(size=(400,env.action_space.n))
 	num_episodes = 1000
-	num_experiments=1
+	num_experiments=20
 	print ("Running for Total Episodes", num_episodes)
 	smoothing_window = 1
 
